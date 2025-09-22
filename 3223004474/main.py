@@ -9,6 +9,7 @@ import re
 import sys
 import jieba
 import math
+import chardet
 from collections import Counter
 from typing import List, Set
 
@@ -29,8 +30,8 @@ SYNONYMS = {
     "好天气": "晴",
     "明日": "明天",
     "影片": "电影",
-    "电影院": "电影",
-    "观影": "电影",
+    "电影院": "movie",  # 修改为英文以避免同义词冲突
+    "观影": "movie",  # 修改为英文以避免同义词冲突
     "我要": "我",
     "我想要": "我",
     "我打算": "我",
@@ -55,6 +56,31 @@ STOPWORDS: Set[str] = {
 }
 
 
+def detect_encoding(file_path: str) -> str:
+    """
+    检测文件编码
+
+    Args:
+        file_path: 文件路径
+
+    Returns:
+        检测到的编码格式
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            raw_data = f.read()
+            result = chardet.detect(raw_data)
+            encoding = result['encoding']
+            confidence = result['confidence']
+
+            # 如果置信度低，默认使用UTF-8
+            if confidence < 0.7:
+                return 'utf-8'
+            return encoding if encoding else 'utf-8'
+    except Exception:
+        return 'utf-8'  # 默认使用UTF-8
+
+
 def read_file(file_path: str) -> str:
     """
     读取文件内容
@@ -69,7 +95,10 @@ def read_file(file_path: str) -> str:
         SystemExit: 当文件不存在或读取失败时退出程序
     """
     try:
-        with open(file_path, "r", encoding="utf-8-sig") as f:
+        # 检测文件编码
+        encoding = detect_encoding(file_path)
+
+        with open(file_path, "r", encoding=encoding) as f:
             content = f.read().strip()
             # 去除BOM（字节顺序标记）
             if content.startswith("\ufeff"):
@@ -82,7 +111,20 @@ def read_file(file_path: str) -> str:
         print(f"错误：没有权限读取文件 '{file_path}'")
         sys.exit(1)
     except UnicodeDecodeError:
-        print(f"错误：文件 '{file_path}' 编码不是UTF-8")
+        # 尝试使用其他常见编码
+        encodings = ['gbk', 'gb2312', 'big5', 'latin-1']
+        for enc in encodings:
+            try:
+                with open(file_path, "r", encoding=enc) as f:
+                    content = f.read().strip()
+                    if content.startswith("\ufeff"):
+                        content = content[1:]
+                    print(f"警告：使用 {enc} 编码成功读取文件 '{file_path}'")
+                    return content
+            except UnicodeDecodeError:
+                continue
+
+        print(f"错误：无法解码文件 '{file_path}'，请检查文件编码")
         sys.exit(1)
     except Exception as e:
         print(f"读取文件 '{file_path}' 时出错：{e}")
