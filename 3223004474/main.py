@@ -296,7 +296,7 @@ def write_file(file_path: str, result: float) -> None:
     except Exception as e:
         # 只处理已知的模拟异常（避免过度捕获）
         if str(e) == "模拟其他异常":
-            print(f"读取文件 '{file_path}' 时发生错误：{e}")
+            print(f"写入文件 '{file_path}' 时发生错误：{e}")
             sys.exit(1)
         # 对于未知异常，重新抛出（让上层处理或暴露问题）
         raise
